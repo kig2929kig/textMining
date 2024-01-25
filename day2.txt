@@ -1,0 +1,482 @@
+텍스트 데이터 - 비정형 데이터
+텍스트 -> 실수값 벡터 변환 -> 머신러닝, 딥러닝 학습 -> 유사도 분석, 분류, 문서 요약,  주제추출, 문서 생성,...
+
+AI - 인공 신경망 기반으로 인간의 지각, 학습, 추론, 언어 등의 이해능력을 컴퓨터로 구현하고 하는 기술
+머신러닝 -  데이터로부터 학습을 통해  AI의 성능을 향상시키는 기술(알고리즘) 
+지도 - 데이터, 정답 : 예측, 분류
+비지도 - 데이터 : 분류, 연관
+강화 - 환경, action(policy) , 보상을 최대화하는 action을 선택하도록 하는 학습
+
+딥러닝 -  머신러닝의 지도학습의 Perceptron(단일 신경망) 은 선형 분류만 가능
+             다층신경망, deep neural network
+             CNN (이미지 분류 딥러닝 알고리즘) - lenet-5, Alexnet, resnet, googlenet....
+             RNN(시계열 딥러닝 알고리즘) -  LSTM, GRU, .
+             GAN (생성 딥러닝 알고리즘) - 이미지 복원, 생성
+
+
+강사 colab 실습코드 :
+https://colab.research.google.com/drive/1SJT3wNFIemhbgcxsDC6XYgK7NDeKPAa4#scrollTo=5ZyZq8Quy3D4
+
+
+# 0. 필요한 패키지 불러오기
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 1. 데이터셋 생성하기
+(X_train, y_train), (X_test, y_test) = mnist.load_data()
+
+# 첫 번째 손글씨 이미지 출력
+first_image = X_train[0]
+print(first_image)
+
+plt.imshow(first_image, cmap='gray')
+plt.title(f'Label: {y_train[0]}')
+plt.show()
+
+# 차원 변환 후, 테스트셋과 학습셋으로 나눕니다.
+X_train = X_train.reshape(X_train.shape[0], 784).astype('float32') / 255
+X_test = X_test.reshape(X_test.shape[0], 784).astype('float32') / 255
+print(y_train[0:10])
+
+#label(target값)을 one-hot encode로 변환
+y_train = to_categorical(y_train, 10)
+y_test = to_categorical(y_test, 10)
+print(y_train[0:10])
+
+# 2. 모델 구성하기
+model = Sequential()
+model.add(Dense(units=512, input_shape=(28*28,), activation='relu'))
+model.add(Dense(units=10, activation='softmax'))
+model.summary()
+
+# 3. 모델 학습과정(실행 환경) 설정하기
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+# 모델 최적화를 위한 설정 구간입니다.
+modelpath = "./MNIST_MLP.hdf5"
+checkpointer = ModelCheckpoint(filepath=modelpath, monitor='val_loss', verbose=1, save_best_only=True)
+early_stopping_callback = EarlyStopping(monitor='val_loss', patience=10)
+
+# 4. 모델 학습시키기
+history = model.fit(X_train, y_train, validation_split=0.25, epochs=30, batch_size=200, verbose=0, callbacks=[early_stopping_callback, checkpointer])
+# 테스트 정확도를 출력합니다.
+print("\n Test Accuracy: %.4f" % (model.evaluate(X_test, y_test)[1]))
+# 검증셋과 학습셋의 오차를 저장합니다.
+y_vloss = history.history['val_loss']
+y_loss = history.history['loss']
+# 5. 학습과정 살펴보기( 그래프로 표현 )
+x_len = np.arange(len(y_loss))
+plt.plot(x_len, y_vloss, marker='.', c="red", label='Testset_loss')
+plt.plot(x_len, y_loss, marker='.', c="blue", label='Trainset_loss')
+
+# 그래프에 그리드를 주고 레이블을 표시해 보겠습니다.
+plt.legend(loc='upper right')
+plt.grid()
+plt.xlabel('epoch')
+plt.ylabel('loss')
+plt.show()
+
+# 6. 모델 평가하기
+loss_and_metrics = model.evaluate(X_test, y_test, batch_size=32)
+print('## evaluation loss and_metrics ##')
+print(loss_and_metrics)
+
+# 7. 모델 사용하기
+xhat = X_test[0:1]
+yhat = model.predict(xhat)
+print('## yhat ##')
+print(yhat)
+print(y_test)   
+
+___________________________________________________________________________________________
+text_data = [ "   Interrobang. By Aishwarya Henriette     ",
+                 "Parking And Going. By Karl Gautier",
+                 "    Today Is The night. By Jarek Prakash   "]  	 # 텍스트 데이터 생성
+
+strip_whitespace = [string.strip() for string in text_data] 	 # 공백 문자 제거
+strip_whitespace  	 # 결과 텍스트 확인
+				
+
+remove_periods = [string.replace(".", "") for string in strip_whitespace]      # 마침표 제거
+remove_periods  					 # 텍스트 확인
+
+def capitalizer(str2 )  :      		             #함수 정의
+    return str2.upper()     
+[capitalizer(string) for string in remove_periods]   # 함수 적용 
+
+_____________________________________________________________________
+
+nltk.download('punkt')  #문장 토큰화에 사용되는 모듈
+nltk.download('webtext')  #웹 환경에서 수집된 텍스트 데이터 제공
+nltk.download('wordnet') #영어 어휘 데이터베이스로서, 단어간의 관계, 의미론적 정보, 동의어, 상위어 등 어휘 및 관계 데이터를 제공하는 리소스
+nltk.download('stopwords')  #불용어 사전 제공
+nltk.download('averaged_perceptron_tagger') #품사 태깅(Part-of-Speech Tagging)을 수행하는 데 사용되는 딥러닝을 사용해서 품사를 예측하는 태거 모델 제공 
+nltk.download('omw-1.4') # Open Multilingual Wordnet (OMW)는 다양한 언어로 표현된 단어의 의미를 정의하는 리소스로서, WordNet 프로젝트의 다국어화된 확장판입니다.
+
+text_data = [ "   Interrobang. By Aishwarya Henriette     ",
+                 "Parking And Going. By Karl Gautier",
+                 "    Today Is The night. By Jarek Prakash   "]  	 # 텍스트 데이터 생성
+
+strip_whitespace = [string.strip() for string in text_data] 	 # 공백 문자 제거
+print(strip_whitespace  )					 # 텍스트 확인
+remove_periods = [string.replace(".", "") for string in strip_whitespace]      # 마침표 제거
+print(remove_periods ) 					 # 텍스트 확인
+
+def capitalizer(str2 )  :      		             #함수 정의
+    return str2.upper()     
+[capitalizer(string) for string in remove_periods]   # 함수 적용 
+
+
+
+import nltk
+nltk.download('punkt')  #문장 토큰화에 사용되는 모듈
+nltk.download('webtext')  #웹 환경에서 수집된 텍스트 데이터 제공
+nltk.download('wordnet') #영어 어휘 데이터베이스로서  어휘 및 관계 데이터를 제공하는 리소스
+nltk.download('stopwords')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('omw-1.4')
+
+# 문장 토큰화(sentence tokenize)
+para = "Hello everyone. It's good to see you. Let's start our text mining class!"
+from nltk.tokenize import sent_tokenize
+print(sent_tokenize(para)) #주어진 text를 sentence 단위로 tokenize함. 주로 . ! ? 등을 이용
+
+para_kor = "안녕하세요? 여러분, 만나서 반갑습니다. 이제 텍스트마이닝 클래스를 시작해봅시다!"
+print(sent_tokenize(para_kor)) #한국어에 대해서도 sentence tokenizer는 잘 동작함
+
+#단어 토큰화 (word tokenize)
+from nltk.tokenize import word_tokenize
+print(word_tokenize(para)) #주어진 text를 word 단위로 tokenize함
+ 
+#WordPunctTokenizer 는 문장에서 단어를 분리할 때 구두점을 고려해서 토큰화하는 클래스
+from nltk.tokenize import WordPunctTokenizer  
+print(WordPunctTokenizer().tokenize(para))
+ 
+print(word_tokenize(para_kor)) 
+
+# re모듈
+# 다양한 조건에 따라 정규표현식을 이용한 토큰화  
+import re
+print(re.findall("[abc]", "How are you, boy?") ) #a, b, c 중에 해당하는 모든 문자를 찾아서 반환
+print(re.findall("[0123456789]", "3a7b5c9d") )  #숫자만 반환 
+print(re.findall("[\w]", "3a 7b_ '.^&5c9d") )   #[a-zA-Z0-9]의 줄임표현 w
+print(re.findall("[_]+", "a_b, c__d, e___f"))     #+는 한번이상 반복
+print(re.findall("[\w]+", "How are you, boy?"))
+print(re.findall("[o]{2,4}", "oh, hoow are yoooou, boooooooy?") #{min, max} 지정된 반복 횟수              
+
+from nltk.tokenize import RegexpTokenizer
+tokenizer = RegexpTokenizer("[\w']+") #regular expression(정규식)을 이용한 tokenizer
+print(tokenizer.tokenize("Sorry, I can't go there.")) # can't를 하나의 단어로 인식
+
+tokenizer = RegexpTokenizer("[\w]+") 
+print(tokenizer.tokenize("Sorry, I can't go there."))
+
+text1 = "Sorry, I can't go there."
+tokenizer = RegexpTokenizer("[\w']{3,}") 
+print(tokenizer.tokenize(text1.lower()))            
+
+_______________________________________________________________
+from nltk.corpus import stopwords  
+english_stops = set(stopwords.words('english'))   
+print(english_stops)
+print(len(english_stops))
+
+text1 = "Sorry, I couldn't go to movie yesterday."
+
+tokenizer = RegexpTokenizer("[\w']+")
+tokens = tokenizer.tokenize(text1.lower())  
+
+#stopwords를 제외한 단어들만으로 list를 생성
+result = [word for word in tokens if word not in english_stops] 
+print(result)
+
+____________________________________________________________________________
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
+# 불용어 개수 출력
+num_stopwords = len(ENGLISH_STOP_WORDS)
+print(f"불용어 개수: {num_stopwords}")
+
+# 불용어 출력 (일부만 출력)
+print("불용어 예시:")
+print(list(ENGLISH_STOP_WORDS)[:10])
+
+
+pip install konlpy
+from konlpy.tag import Okt
+okt = Okt()
+example = "고기를 아무렇게나 구우려고 하면 안 돼. 고기라고 다 같은 게 아니거든. 예컨대 삼겹살을 구울 때는 중요한 게 있지."
+stop_words = "를 아무렇게나 구우려고 안 돼 같은 게 구울 때 는"
+stop_words = set(stop_words.split(' '))
+word_tokens = okt.morphs(example)
+result = [word for word in word_tokens if not word in stop_words]
+
+print('불용어 제거 전 :',word_tokens) 
+print('불용어 제거 후 :',result)
+
+_________________________________________________________________________________________________
+# 정규화 : 어간 추출
+from nltk.stem import PorterStemmer, LancasterStemmer
+
+stemmer1 = PorterStemmer()
+stemmer2 =  LancasterStemmer()
+
+words = ["fly", "flies", "flying", "flew", "flown"]
+print("Porter Stemmer   :", [stemmer1.stem(w) for w in words])
+print("Lancaster Stemmer:", [stemmer2.stem(w) for w in words]) 
+
+para = "Hello everyone. It's good to see you. Let's start our text mining class!"
+tokens = word_tokenize(para) #토큰화 실행
+print(tokens)
+ 
+result = [stemmer1.stem(token) for token in tokens]  
+print(result) 
+ 
+result2 = [stemmer2.stem(token) for token in tokens]  
+print(result2)
+
+_____________________________________________________________________
+#정규화 : 기본형 변환(표제어추출)
+from nltk.stem import WordNetLemmatizer
+
+lemmatizer = WordNetLemmatizer()
+print(lemmatizer.lemmatize('cooking'))
+print(lemmatizer.lemmatize('cooking', pos='v')) #품사를 지정
+print(lemmatizer.lemmatize('cookery'))
+print(lemmatizer.lemmatize('cookbooks'))
+from nltk.stem import PorterStemmer
+stemmer = PorterStemmer()
+print('stemming result:', stemmer.stem('believes'))
+print('lemmatizing result:', lemmatizer.lemmatize('believes'))
+print('lemmatizing result:', lemmatizer.lemmatize('believes', pos='v'))
+
+_________________________________________________________________________
+import nltk
+nltk.download('averaged_perceptron_tagger') 		 # 태거 다운로드
+from nltk import pos_tag
+from nltk import word_tokenize
+
+tokens = word_tokenize("Hello everyone. It's good to see you. Let's start our text mining class!")
+print(nltk.pos_tag(tokens)) #토큰화된 단어의 품사 
+
+nltk.download('tagsets')
+nltk.help.upenn_tagset('CC')
+
+my_tag_set = ['NN', 'VB', 'JJ']  #명사, 동사, 형용사
+my_words = [word for word, tag in nltk.pos_tag(tokens) if tag in my_tag_set]
+print(my_words)
+
+#단어와 품사를 결합하여 데이터 리스트 반환
+words_with_tag = ['/'.join(item) for item in nltk.pos_tag(tokens)]
+print(words_with_tag)  
+
+import nltk
+from nltk.tokenize import word_tokenize
+sentence = '''절망의 반대가 희망은 아니다.
+어두운 밤하늘에 별이 빛나듯
+희망은 절망 속에 싹트는 거지
+만약에 우리가 희망함이 적다면
+그 누가 세상을 비출어줄까.
+정희성, 희망 공부''‘
+
+tokens = word_tokenize(sentence)
+print(tokens)
+print(nltk.pos_tag(tokens))
+
+from konlpy.tag import Okt
+t = Okt()
+print('형태소:', t.morphs(sentence))
+print()
+print('명사:', t.nouns(sentence))
+print()
+print('품사 태깅 결과:', t.pos(sentence))
+
+_____________________________________________________________
+import nltk
+nltk.download('movie_reviews')
+nltk.download('punkt')
+from nltk.corpus import movie_reviews
+print('#영화 리뷰 문서 개수 : ', len(movie_reviews.fileids()))  
+print('#samples of file ids:', movie_reviews.fileids()[:10]) #id를 10개까지만 출력
+print('#영화 리뷰 분류값 :', movie_reviews.categories())  
+print('#label이 부정인 영화 리뷰 문서 수 :', len(movie_reviews.fileids(categories='neg'))) 
+print('# label이 긍정인 영화 리뷰 문서 수 :', len(movie_reviews.fileids(categories='pos'))) 
+
+fileid = movie_reviews.fileids()[0]   #첫번째 문서의 id를 반환
+print('#id of the first review:', fileid)
+
+print('# 첫번째 문서의 내용 200자 : \n', movie_reviews.raw(fileid)[:200])  
+print()
+# 첫번째 문서를 sentence tokenize한 결과 중 앞 두 문장 
+print('#sentence tokenization result:', movie_reviews.sents(fileid)[:2]) #2차원 리스트로 반환
+#첫번째 문서를 word tokenize한 결과 중 앞 스무 단어
+print('#word tokenization result:', movie_reviews.words(fileid)[:20]) #1차원 리스트로 반환
+
+
+######################################################
+documents = [list(movie_reviews.words(fileid)) for fileid in movie_reviews.fileids()]
+print(documents[0][:50]) #첫째 문서의 앞 50개 단어를 출력
+
+# 단어별 말뭉치 전체에서의 빈도를 계산, 빈도가 높은 단어부터 정렬한 후에 상위 10개 단어 출력
+word_count = {}
+for text in documents:
+    for word in text:
+        word_count[word] = word_count.get(word, 0) + 1
+
+sorted_features = sorted(word_count, key=word_count.get, reverse=True)
+for word in sorted_features[:10]:
+    print(f"count of '{word}': {word_count[word]}", end=', ')
+
+____________________________________________________________________________________________
+from nltk.tokenize import RegexpTokenizer
+from nltk.corpus import stopwords 
+tokenizer = RegexpTokenizer("[\w']{3,}")  # 정규포현식으로 토크나이저를 정의
+english_stops = set(stopwords.words('english'))
+documents = [movie_reviews.raw(fileid) for fileid in movie_reviews.fileids()] #원문을 가져옴
+# stopwords의 적용과 토큰화를 동시에 수행.
+tokens = [[token for token in tokenizer.tokenize(doc) if token not in english_stops] for doc in documents]
+
+word_count = {}
+for text in tokens:
+    for word in text:
+        word_count[word] = word_count.get(word, 0) + 1
+
+sorted_features = sorted(word_count, key=word_count.get, reverse=True)
+
+print('num of features:', len(sorted_features))
+for word in sorted_features[:10]:
+    print(f"count of '{word}': {word_count[word]}", end=', ')
+
+
+#함수 특성집합, 분석할 텍스트 문서 => 빈도수 계산, 정수 매핑 벡터
+def document_features(document, word_features):
+    word_count = {}
+    for word in document: #document에 있는 단어들에 대해 빈도수를 먼저 계산
+        word_count[word] = word_count.get(word, 0) + 1
+        
+    features = []
+    for word in word_features: #word_features의 단어에 대해 계산된 빈도수를 feature에 추가
+        features.append(word_count.get(word, 0)) #빈도가 없는 단어는 0을 입력
+    return features
+
+
+word_features_ex = ['one', 'two', 'teen', 'couples', 'solo']  #단어 특성 집합
+doc_ex = ['two', 'two', 'couples']  #정수벡터로 변환할 대상 문자열 집합
+print(document_features(doc_ex, word_features_ex)) # [0, 2, 0, 1, 0]
+
+
+ 
+#영화 리뷰 토큰화된 데이터의 빈도가 높은 상위 1000개의 단어만 추출하여 features를 구성
+word_features = sorted_features[:1000] 
+print(word_features)
+feature_sets = [document_features(d, word_features) for d in tokens]
+print(len(feature_sets))
+print(feature_sets[0])
+
+# 첫째 feature set의 내용을 앞 20개만 word_features의 단어와 함께 출력
+for i in range(20):
+    print(f'({word_features[i]}, {feature_sets[0][i]})', end=', ')
+
+print(feature_sets[0][-20:]) 
+
+
+
+from sklearn.feature_extraction.text import CountVectorizer
+cv = CountVectorizer(vocabulary=word_features) 
+#cv = CountVectorizer(max_features=1000) #특성 집합을 지정하지 않고 최대 특성의 수를 지정하는 경우
+print(cv) #객체에 사용된 인수들을 확인
+
+reviews = [movie_reviews.raw(fileid) for fileid in movie_reviews.fileids()]
+reviews_cv = cv.fit_transform(reviews) #reviews를 이용하여 count vector를 학습하고, 변환
+print(cv.get_feature_names_out()[:20]) # count vector에 사용된 feature 이름을 반환
+print(word_features[:20]) # 비교를 위해 출력
+
+print('#type of count vectors:', type(reviews_cv))
+print('#shape of count vectors:', reviews_cv.shape)
+print('#sample of count vector:')
+print(reviews_cv[0, :10])
+ 
+print(feature_sets[0][:20]) #절 앞에서 직접 계산한 카운트 벡터
+print(reviews_cv.toarray()[0, :20]) #변환된 결과의 첫째 feature set 중에서 앞 20개를 출력
+
+for word, count in zip(cv.get_feature_names_out()[:20], reviews_cv[0].toarray()[0, :20]):
+    print(f'{word}:{count}', end=', ')
+
+
+
+
+
+import pandas as pd
+df = pd.read_csv('./daum_movie_review.csv')
+print(df.info())
+df.head(10)
+daum_cv = CountVectorizer(max_features=1000)
+print(daum_cv)
+
+daum_DTM = daum_cv.fit_transform(df.review) #review를 이용하여 count vector를 학습하고, 변환
+print(daum_cv.get_feature_names_out()[:100]) 
+
+from konlpy.tag import Okt #konlpy에서 Twitter 형태소 분석기를 import
+twitter_tag = Okt()
+ 
+def my_tokenizer(doc):
+    return [token for token, pos in twitter_tag.pos(doc) if pos in ['Noun', 'Verb', 'Adjective']]
+
+print("나만의 토크나이저 결과:", my_tokenizer(df.review[1]))
+
+daum_cv = CountVectorizer(max_features=1000, tokenizer=my_tokenizer) 
+
+daum_DTM = daum_cv.fit_transform(df.review) #review를 이용하여 count vector를 학습하고, 변환
+print(daum_cv.get_feature_names_out()[:100]) # count vector에 사용된 feature 이름을 반환
+_______________________________________________________________________________
+문서1 : 저는 사과 좋아요
+문서2 : 저는 바나나 좋아요
+문서3 : 저는 바나나 좋아요 저는 바나나 좋아요
+[바나나, 사과, 저는, 좋아요]
+doc1 = np.array([0,1,1,1])
+doc2 = np.array([1,0,1,1])
+doc3 = np.array([2,0,2,2])
+
+import numpy as np
+from numpy import dot
+from numpy.linalg import norm
+
+def cos_sim(A, B):
+  return dot(A, B)/(norm(A)*norm(B))
+
+print('문서 1과 문서2의 유사도 :',cos_sim(doc1, doc2))
+print('문서 1과 문서3의 유사도 :',cos_sim(doc1, doc3))
+print('문서 2와 문서3의 유사도 :',cos_sim(doc2, doc3))
+
+
+
+
+
+카운트 벡트를 활용한 영화 Review 유사도 분석 _______________________________________________________________________
+reviews = [movie_reviews.raw(fileid) for fileid in movie_reviews.fileids()]
+
+from sklearn.metrics.pairwise import cosine_similarity
+start = len(reviews[0]) // 2 #첫째 리뷰의 문자수를 확인하고 뒤 절반을 가져오기 위해 중심점을 찾음
+source = reviews[0][-start:] #중심점으로부터 뒤 절반을 가져와서 비교할 문서를 생성
+
+source_cv = cv.transform([source]) 
+print("#대상 특성 행렬의 크기:", source_cv.shape) 
+
+sim_result = cosine_similarity(source_cv, reviews_cv) 
+print("#유사도 계산 행렬의 크기:", sim_result.shape)
+print("#유사도 계산결과를 역순으로 정렬:", sorted(sim_result[0], reverse=True)[:10])
+
+import numpy as np
+#첫번째 영화 리뷰의 뒤의 절반의 내용과 가장 유사한 리뷰문서 인덱스
+print('#가장 유사한 리뷰의 인덱스:', np.argmax(sim_result[0]))
+
+print('#가장 유사한 리뷰부터 정렬한 인덱스:', (-sim_result[0]).argsort()[:10])
+
+print(reviews[0][-start:])
+print(reviews[1110])
+
+

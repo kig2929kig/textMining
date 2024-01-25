@@ -1,0 +1,425 @@
+(영어) 자연어 처리 파이썬 패키지 : nltk
+비정형 텍스트 데이터 -----> 머신러닝, 딥러닝 텍스트 분석 모델에 학습 가능한 구조로 변환
+전처리 과정이 필요
+1. cleaning : 구두점 제거, 특수문자 제거, 숫자제거 (분석 목적에 맞춰서 수행해야 함)
+                 string.strip(), string.replace()...
+2. 토큰화 : 문장 토큰화 nltk.tokenize.sent_tokenize
+               단어 토큰화  nltk.tokenize.word_tokenize
+               WordPunctTokenizer
+               Keras 라이브러리  text_to_word_sequence() : 소문자변환+ 구둣점(,.!) 제거 + don't와 같은 '를 포함하는 단어는 보존
+                  
+3. 불용어 제거 :  분석에 필요없는 의미 없는 단어 제거 ( 등장 빈도가 적은 단어, 길이가 짧은 단어)
+              nltk.download('stopword'),  사이킷런에서 불용어사전, 사용자 정의 또는 외부 파일을 불용어 사전으로 등록 사용
+              정규표현식 re 모듈, RegExpTokenizer
+              [],  ^, $,  ?, *, +, {min, max}  , [^], \\, \w [a-zA-Z0-9], \W[^a-zA-Z0-9], \s 공백[\t\n\r\f], \S[^\t\n\r\f]
+              re.compile(r'패턴문자')
+              re.findall() 정규표현식 패턴에 일치하는 모든 문자열을 찾아서 리스트로 반환
+              re.sub()는 replace를 수행
+              re.match() : 전체에서 정규표현식 패턴에 일치하는 모든 문자열 검색
+              re.search() : 정규표현식 패턴에 일치하는 첫번째 문자열 검색
+
+4. 정규화 : 단어를 원형으로 통일화하는 작업 (어간추출stemming, 표제어 추출 lemmatization)
+              nltk.stem.WordNetLemmatizer, PorterStemmer, LancasterStemmer
+
+# 한국어의 토큰화와 정규화에서 중요한 차이  :   형태소기반으로 토큰화,  어간추출에서 품사를 고려해야 하는 경우가 많음
+한국어 자연어 처리 패키지  :  konlpy는 5개의 형태소 분석 엔진이 포함
+                                       morphs(), nouns(), pos()
+
+5. 카운트 기반 정수 인코딩 벡터 변환 
+정규화 전처리를 마친 텍스트(토큰화)의 등장빈도 기준으로 정렬해서 등장빈도가 높은 단어들을 특성 집합으로 생성
+분석할 target문서들을 특성집합의 단어 빈도수로 구성된 정수 벡터로 변환 =>DTM
+코사인 유사도를 이용해서 모든 문서들에 대한 유사도 측정
+______________________________________________________________________________________
+TF-IDF(Term Frequency-Inverse Document Frequency) 
+단어의 빈도와 역문서 빈도를 사용해서 DTM내의 단어들마다 중요한 정도를 가중치를 주는 방법
+_________________________________________________________________________________________
+https://colab.research.google.com/drive/19ErbtjJ-9FdouHJRp8YRc-1jFD2uGNKs#scrollTo=z4JiAx0IriAB
+
+import nltk
+nltk.download('movie_reviews')
+nltk.download('punkt')
+nltk.download('stopwords')
+
+from nltk.corpus import movie_reviews
+
+from nltk.tokenize import RegexpTokenizer
+from nltk.corpus import stopwords  
+
+tokenizer = RegexpTokenizer("[\w']{3,}")
+english_stops = set(stopwords.words('english'))
+documents = [movie_reviews.raw(fileid) for fileid in movie_reviews.fileids()] 
+tokens = [[token for token in tokenizer.tokenize(doc) if token not in english_stops] for doc in documents]
+
+#빈도수 계산
+word_count = {}
+for text in tokens:
+    for word in text:
+        word_count[word] = word_count.get(word, 0) + 1
+
+sorted_features = sorted(word_count, key=word_count.get, reverse=True) 
+word_features = sorted_features[:1000] #빈도가 높은 상위 1000개의 단어만 추출하여 features를 구성
+
+from sklearn.feature_extraction.text import CountVectorizer
+cv = CountVectorizer(vocabulary=word_features)
+
+reviews_cv = cv.fit_transform(documents)
+print('#type of count vectors:', type(reviews_cv))
+print('#shape of count vectors:', reviews_cv.shape)
+print(reviews_cv[0, :100])
+print(word_features[:100])
+
+from sklearn.feature_extraction.text import TfidfTransformer
+transformer = TfidfTransformer()
+
+reviews_tfidf = transformer.fit_transform(reviews_cv)
+print('#shape of tfidf matrix:', reviews_tfidf.shape)
+
+print(reviews_tfidf[0, :100])
+
+
+
+start = len(documents[0]) // 2
+source = documents[0][-start:] 
+source_cv = cv.transform([source])
+
+from sklearn.metrics.pairwise import cosine_similarity
+sim_result = cosine_similarity(source_cv, reviews_cv)
+print("#유사도 계산결과를 역순으로 정렬:", sorted(sim_result[0], reverse=True)[:10])
+
+import numpy as np
+print('#가장 유사한 리뷰의 인덱스:', np.argmax(sim_result[0]))
+print('#가장 유사한 리뷰부터 정렬한 인덱스:', (-sim_result[0]).argsort()[:10])
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+tf = TfidfVectorizer(vocabulary=word_features)
+reviews_tf = tf.fit_transform(documents)
+
+source_tf = tf.transform([source])
+sim_result_tf = cosine_similarity(source_tf, reviews_tf)
+print('#가장 유사한 리뷰의 인덱스:', np.argmax(sim_result_tf[0]))
+
+print('#TF-IDF 벡터에 대해 가장 유사한 리뷰부터 정렬한 인덱스:', (-sim_result_tf[0]).argsort()[:10])
+
+______________________________________________________________________________________
+http://scikit-learn.org/0.19/datasets/twenty_newsgroups.html
+fetch_20newsgroups의 속성
+data는 각 문서의 텍스트 내용을 담고 있는 리스트 (각 문서는 문자열로 표현)
+target는 각 문서에 대한 레이블 또는 카테고리를 나타내는 정수값을 담고 있는 배열 ( 0부터 19까지의 정수로 표현)
+target_names는 실제 카테고리(주제)의 이름을 담고 있는 리스트
+DESCR은  데이터셋에 대한 설명이나 정보를 담고 있는 문자열 (데이터셋의 출처, 크기, 특징 등에 대한 정보)
+________________________________________________________________________
+from sklearn.datasets import fetch_20newsgroups
+
+#20개의 토픽 중 선택하고자 하는 토픽을 리스트로 생성
+categories = ['alt.atheism', 'talk.religion.misc', 'comp.graphics', 'sci.space']
+
+#학습 데이터셋을 가져옴
+newsgroups_train = fetch_20newsgroups(subset='train',
+#메일 내용에서 hint가 되는 부분을 삭제 - 순수하게 내용만으로 분류
+                                      remove=('headers', 'footers', 'quotes'),
+                                      categories=categories)
+
+#검증 데이터셋을 가져옴
+newsgroups_test = fetch_20newsgroups(subset='test', 
+                                     remove=('headers', 'footers', 'quotes'),
+                                     categories=categories)
+
+print('#학습데이터 셋 문서 수 :', len(newsgroups_train.data))
+print('#Test 데이터 셋 문서 수 :', len(newsgroups_test.data))
+print('#선택한 토픽 categories:', newsgroups_train.target_names)
+print('#학습데이터 셋의 선택한 토픽의 labels 정수값:', set(newsgroups_train.target))
+
+
+train = fetch_20newsgroups(subset='train',                                    
+                          categories=categories)
+print(train.data[0])
+print(newsgroups_train.data[0])
+
+print('#Train set label smaples:', newsgroups_train.target[0])
+print('#Test set text samples:', newsgroups_test.data[0])
+print('#Test set label smaples:', newsgroups_test.target[0])
+
+X_train = newsgroups_train.data   #학습 데이터셋 문서
+y_train = newsgroups_train.target #학습 데이터셋 라벨
+
+X_test = newsgroups_test.data     #검증 데이터셋 문서
+y_test = newsgroups_test.target   #검증 데이터셋 라벨
+
+from sklearn.feature_extraction.text import CountVectorizer
+
+cv = CountVectorizer(max_features=2000, min_df=5, max_df=0.5) #df는 문서에서의 출현 빈도수, 비율
+
+#단어의 빈도수와 단어들의 문서에 출현수 계산,  빈도수가 높은 2000개의 단어를 특성 집합으로 생성
+# 2034개의 뉴스레터를 특성 집합 기반의 빈도수의 벡터로 변환
+X_train_cv = cv.fit_transform(X_train)    #학습과 변환
+print('Train set dimension:', X_train_cv.shape) #변환된DTM구조
+
+X_test_cv = cv.transform(X_test) # test set을 변환
+print('Test set dimension:', X_test_cv.shape)
+
+for word, count in zip(cv.get_feature_names_out()[:100], X_train_cv[0].toarray()[0, :100]):
+    print(word, ':', count, end=', ')
+
+
+#나이브 베이즈 분류기(Naive Bayse Classifier)를 이용한 문서 분류
+http://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.MultinomialNB.html
+
+#회귀분석 , 예측 :  오차가 모델의 측정지표
+#분류분석은 측정지표 : 정확률, 정밀도, 재현율 , 
+
+True Positive (TP): 실제로 Positive인 것을 Positive로 정확하게 분류한 경우
+True Negative (TN): 실제로 Negative인 것을 Negative로 정확하게 분류한 경우
+False Positive (FP): 실제로 Negative인 것을 Positive로 잘못 분류한 경우 (예측이 양성인데 실제로는 음성)
+False Negative (FN) : 제로 Positive인 것을 Negative로 잘못 분류한 경우 (예측이 음성인데 실제로는 양성)
+
+정확도 = TP+ TN / (TP+TN+FP+FN)
+정밀도  Positive로 예측한 것 중에서 실제로 Positive인 비율 :  TP /TP+FP
+재현율은  실제로 Positive인 것 중에서 얼마나 많은 것을 양성으로 예측 비율 :   TP  / TP + FN
+
+f1 score :  정밀도와 재현율의 조화 평균  (정밀도 +재현율   / 정밀도 +재현율) *2
+
+#나이브 베이즈 분류(Naive Bayes Classification)는 베이즈 정리를 기반의 통계적 분류 기법 
+# 특성들 간의 독립을 가정,  모든 특성이 독립적이지 않더라도 간단하게 계산할 수 있게 만듬
+from sklearn.naive_bayes import MultinomialNB
+NB_clf = MultinomialNB()
+NB_clf.fit(X_train_cv, y_train)   #지도학습
+#학습된 모델로 학습데이터셋을 예측하고 실제 label과 비교 정확률 계산
+print('Train set score: {:.3f}'.format(NB_clf.score(X_train_cv, y_train)))  #82.4%
+#학습된 모델로 평가데이터셋을 예측하고 실제 label과 비교 정확률 계산
+print('Test set score: {:.3f}'.format(NB_clf.score(X_test_cv, y_test)))    #73.2%
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+tfidf = TfidfVectorizer(max_features=2000, min_df=5, max_df=0.5) 
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+
+#나이브베이즈 분류 수행
+NB_clf.fit(X_train_tfidf, y_train)
+print('Train set score: {:.3f}'.format(NB_clf.score(X_train_tfidf, y_train))) #86.2%
+print('Test set score: {:.3f}'.format(NB_clf.score(X_test_tfidf, y_test))) #74.1%
+
+_________________________________________________________________________________________________________________
+머신러닝 모델들은 데이터 학습으로 데이터에 대한 함수 모델이 만들어짐
+과적합(Overfitting) : 학습 데이터에 너무 맞춰져서 새로운 데이터에 일반화하기 어려워지는 현상
+과적합(Overfitting) 줄이는 방법 :
+1. 더 많은 다양한 데이터를 수집함으로써 모델이 다양한 패턴을 학습할 수 있게....
+2.  데이터 전처리 (이상치나 잘못된 레이블을 처리하고, 데이터를 정규화 또는 표준화)
+3.  특성 선택 및 추출 :  ex) 텍스트 분석에서 단순 빈도수와 빈도수* 역문서빈도(가중치) 기반으로 특성선택외에 잠재적 의미 기반으로 특성 LDA,  PCA(분산값 기반)...
+4. 모델 복잡도 제한 : 모델별로 규제 파라미터 (C, alpha,....)
+5. 교차검증 : 학습 데이터를 여러 부분으로 나누어 각각을 훈련 및 검증에 사용하여 일반화 성능을 평가
+6. 앙상블 모델 :  랜덤 포레스트, 그라디언트 부스팅....
+7. 드롭아웃 (Dropout) : 학습 데이터를 일부 제외시키는 방법 
+8. 조기 종료 (Early Stopping)
+9. 가중치 규제 (L1, L2 유클리드, 맨하튼  규제를 사용해서 가중치값이 지나치게 커지는 것을 제한함)
+
+
+성능을 높이기 위한 텍스트 분류 실습 :
+2.  데이터 전처리 (이상치나 잘못된 레이블을 처리하고, 데이터를 정규화 또는 표준화)
+
+
+from nltk.corpus import stopwords
+cachedStopWords = stopwords.words("english")
+
+from nltk.tokenize import RegexpTokenizer
+from nltk.stem.porter import PorterStemmer
+import re
+
+RegTok = RegexpTokenizer("[\w']{3,}")
+english_stops = set(stopwords.words('english'))
+
+def tokenizer(text):
+    tokens = RegTok.tokenize(text.lower()) #이렇게 해도 되는지 확인
+    # stopwords 제외
+    words = [word for word in tokens if (word not in english_stops) and len(word) > 2]
+    # portr stemmer 적용
+    features = (list(map(lambda token: PorterStemmer().stem(token),words)))
+    return features
+
+tfidf = TfidfVectorizer(tokenizer=tokenizer, max_features=2000, min_df=5, max_df=0.5)
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+
+LR_clf = LogisticRegression()
+LR_clf.fit(X_train_tfidf, y_train)
+print('#Train set score: {:.3f}'.format(LR_clf.score(X_train_tfidf, y_train)))
+print('#Test set score: {:.3f}'.format(LR_clf.score(X_test_tfidf, y_test)))
+
+#특성 집합을 제한하지 않고 전체 단어를 특성으로 릿지 분류 수행할때 
+
+tfidf = TfidfVectorizer(tokenizer=tokenizer)
+X_train_tfidf = tfidf.fit_transform(X_train)
+print('#Train set dimension:', X_train_tfidf.shape)  #약 20000단어
+X_test_tfidf = tfidf.transform(X_test)
+print('#Test set dimension:', X_test_tfidf.shape)
+
+ridge_clf = RidgeClassifier(alpha=2.4)
+ridge_clf.fit(X_train_tfidf, y_train) #학습
+print('#Train set score: {:.3f}'.format(ridge_clf.score(X_train_tfidf, y_train)))
+print('#Test set score: {:.3f}'.format(ridge_clf.score(X_test_tfidf, y_test)))
+
+NB_clf = MultinomialNB(alpha=0.01)
+NB_clf.fit(X_train_tfidf, y_train) 
+print('#Train set score: {:.3f}'.format(NB_clf.score(X_train_tfidf, y_train))) #97.1%
+print('#Test set score: {:.3f}'.format(NB_clf.score(X_test_tfidf, y_test)))  #79.3%
+
+나이브 베이즈 모델의 alpha 파라미터는 라플라스(Laplace) 스무딩을 조절하는 하이퍼파라미터로서
+학습 데이터에서 없는 특정 특성 값에 대해 확률을 추정할 때 사용
+라플라스 스무딩은 특성의 확률이 0이 되지 않도록 하는 역할을 합니다. 
+
+
+ChatGPT는 사전학습된 언어 모델을 사용합니다.
+
+언어 모델은 문장 혹은 단어의 시퀀스에 대해 확률(단어시퀀스의 빈도)을 할당하는  방식의 모델
+언어 모델은 가장 자연스러운 단어 시퀀스를 찾아내는 모델로서 이전 단어들이 주어졌을 때 다음 단어를 예측하도록 하는 것
+
+ngram의 장점 : 텍스트 분석에 문맥에 대한 정보를 추가
+ngram의 한계 : BOW 기반의 방식은 변환할 벡터의 크기가 커서 과적합 문제가 발생, tri-gram정도까지만 일반적으로 적용함
+
+cachedStopWords = stopwords.words("english")
+tfidf = TfidfVectorizer(token_pattern= "[a-zA-Z']{3,}",
+                             decode_error ='ignore', 
+                              lowercase=True, 
+		   stop_words = stopwords.words('english'),
+                              max_df=0.5,
+                               min_df=2)
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+print(X_train_tfidf.shape) #
+
+
+NB_clf = MultinomialNB(alpha=0.01)
+NB_clf.fit(X_train_tfidf, y_train) 
+print('#Train set score: {:.3f}'.format(NB_clf.score(X_train_tfidf, y_train)))
+print('#Test set score: {:.3f}'.format(NB_clf.score(X_test_tfidf, y_test)))  #?
+
+
+
+tfidf = TfidfVectorizer(token_pattern= "[a-zA-Z']{3,}",
+                             decode_error ='ignore', 
+                              lowercase=True, 
+		   stop_words = stopwords.words('english'),
+                             ngram_range=(1, 2),
+                              max_df=0.5,
+                               min_df=2)
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+print(X_train_tfidf.shape)
+
+
+bigram_features = [f for f in tfidf.get_feature_names_out() if len(f.split()) > 1]
+print('bi-gram samples:', bigram_features[:10])
+
+NB_clf.fit(X_train_tfidf, y_train)   #bigram으로 만든 특성 집합으로 다시 분류 학습 수행
+print('#Train set score: {:.3f}'.format(NB_clf.score(X_train_tfidf, y_train)))
+print('#Test set score: {:.3f}'.format(NB_clf.score(X_test_tfidf, y_test))) 
+
+
+#3-gram  특성 벡트로 변환
+tfidf = TfidfVectorizer(token_pattern= "[a-zA-Z']{3,}",
+                             decode_error ='ignore', 
+                              lowercase=True, 
+		   stop_words = stopwords.words('english'),
+                             ngram_range=(1, 3),
+                              max_df=0.5,
+                               min_df=2)
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+print(X_train_tfidf.shape)
+
+
+NB_clf.fit(X_train_tfidf, y_train)   #3-gram으로 만든 특성 집합으로 다시 분류 학습 수행
+print('#Train set score: {:.3f}'.format(NB_clf.score(X_train_tfidf, y_train)))
+print('#Test set score: {:.3f}'.format(NB_clf.score(X_test_tfidf, y_test))) 
+
+#한국어 다음 영화 리뷰 분류 분석
+#데이터셋 로딩 확인
+import pandas as pd
+df = pd.read_csv('./daum_movie_review.csv')
+print(df.info())
+df.head(5)
+
+#영화(카테고리)별 리뷰 수 확인
+print(df.title.value_counts())
+
+#학습, 테스트 셋 분할 후 리뷰 수 확인
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(df.review, df.title, random_state=0)  #test_size는 0.25
+print('#Train set size:', len(X_train))
+print('#Test set size:', len(X_test))
+
+# 한국어 텍스트 분석은 형태소분석이 기본~~~
+# pip install konlpy
+from konlpy.tag import Okt
+okt = Okt()
+
+print(okt.morphs(X_train[1]))  #두번째 리뷰의 형태소 분석 결과
+print(okt.nouns(X_train[1]))  #두번째 리뷰의 명사만 추출
+
+#명사만 추출해서 빈도수와 역문서빈도 기반으로 2000개의  특성집합 생성하고, 생성된 특성집합 기반으로 벡터로 변환
+tfidf = TfidfVectorizer(tokenizer=okt.nouns, max_features=2000, min_df=5, max_df=0.5) 
+
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+
+NB_clf.fit(X_train_tfidf, y_train)    
+print('#다음 영화 리뷰 Train set score: {:.3f}'.format(NB_clf.score(X_train_tfidf, y_train)))
+print('#다음 영화 리뷰 Test set score: {:.3f}'.format(NB_clf.score(X_test_tfidf, y_test)))  #68.4%
+
+
+#한국어 다음 영화 리뷰 분류 분석 성능 개선 :
+1.  형태소 분석한 모든 단어로 벡터 변환
+2.  동사, 명사, 형용사만 추출해서 벡터화
+3.  형태소 분석한 모든 단어를 품사정보 포함해서  벡터 변환
+4.  로지스틱 분류기에서 규제 적용 ( Ridge, Lasso) 
+5.  사이킷런에 GridSearchCV를 사용해서 나이브베이즈의 하이퍼파라미터 alpha값을 찾아서 
+
+
+#형태소 분석 결과를 빈도수와 역문서빈도 기반으로 2000개의  특성집합 생성하고, 생성된 특성집합 기반으로 벡터로 변환
+tfidf = TfidfVectorizer(tokenizer=okt.morphs, max_features=2000, min_df=5, max_df=0.5) 
+
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+
+NB_clf.fit(X_train_tfidf, y_train)    
+print('#다음 영화 리뷰 Train set score: {:.3f}'.format(NB_clf.score(X_train_tfidf, y_train)))
+print('#다음 영화 리뷰 Test set score: {:.3f}'.format(NB_clf.score(X_test_tfidf, y_test)))  #68.9%
+
+#동사, 명사, 형용사만 추출해서 빈도수와 역문서빈도 기반으로 2000개의  특성집합 생성하고, 생성된 특성집합 기반으로 벡터로 변환
+def twit_tokenizer(text):
+    target_tags = ['Noun', 'Verb', 'Adjective']
+    result = []
+    for word, tag in okt.pos(text, norm=True, stem=True):
+        if tag in target_tags:
+            result.append(word)
+    return result
+
+tfidf = TfidfVectorizer(tokenizer=twit_tokenizer, max_features=2000, min_df=5, max_df=0.5)
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+
+NB_clf.fit(X_train_tfidf, y_train)    
+print('#다음 영화 리뷰 Train set score: {:.3f}'.format(NB_clf.score(X_train_tfidf, y_train)))
+print('#다음 영화 리뷰 Test set score: {:.3f}'.format(NB_clf.score(X_test_tfidf, y_test)))  #70.3%
+
+
+
+#형태소 분석한 모든 단어를 품사정보 포함해서 토큰화,  벡터 변환
+def twit_tokenizer2(text):
+    result = []
+    for word, tag in okt.pos(text, norm=True, stem=True):
+        result.append('/'.join([word, tag])) #단어의 품사를 구분할 수 있도록 함
+    return result
+
+tfidf = TfidfVectorizer(tokenizer=twit_tokenizer2, max_features=2000, min_df=5, max_df=0.5)
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+
+NB_clf.fit(X_train_tfidf, y_train)    
+print('#다음 영화 리뷰 Train set score: {:.3f}'.format(NB_clf.score(X_train_tfidf, y_train)))
+print('#다음 영화 리뷰 Test set score: {:.3f}'.format(NB_clf.score(X_test_tfidf, y_test))) #70.0%
+
+
+
+
+
